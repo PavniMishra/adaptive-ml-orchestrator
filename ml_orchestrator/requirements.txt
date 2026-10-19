@@ -1,6 +1,0 @@
-fastapi
-uvicorn
-sqlalchemy
-psutil
-scikit-learn
-numpy
