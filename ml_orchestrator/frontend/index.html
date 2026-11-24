@@ -3,172 +3,949 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ML Orchestrator Dashboard — Phase 2</title>
+    <title>Adaptive ML Workload Orchestrator</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; max-width: 900px; }
-        .card { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; border-radius: 5px; }
-        h1, h2 { color: #333; }
-        table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .btn { padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 8px; }
-        .btn:hover { background: #0056b3; }
-        .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; margin-left: 6px; }
-        .tag.ok { background: #d4edda; color: #155724; }
-        .tag.warn { background: #f8d7da; color: #721c24; }
-        label { display: block; margin-top: 8px; font-size: 13px; color: #555; }
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --muted: #64748b;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --purple: #8b5cf6;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background: var(--bg); color: var(--text); padding: 24px; max-width: 1180px; margin: 0 auto; }
+        header { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border); padding-bottom: 16px; }
+        header h1 { font-size: 24px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+        .phase-badge { background: #dbeafe; color: #1e40af; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 9999px; }
+        
+        /* Tab Navigation */
+        .tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+        .tab-btn { background: none; border: none; padding: 10px 16px; font-size: 14px; font-weight: 500; color: var(--muted); cursor: pointer; border-radius: 6px; transition: all 0.15s; white-space: nowrap; }
+        .tab-btn:hover { background: #f1f5f9; color: var(--text); }
+        .tab-btn.active { background: var(--primary); color: white; }
+
+        /* Tab Content */
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; animation: fadeIn 0.2s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Card Layout */
+        .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .card h2 { font-size: 18px; margin-bottom: 12px; color: var(--text); display: flex; align-items: center; justify-content: space-between; }
+        .card p.desc { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+
+        /* Forms & Inputs */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .form-group { margin-bottom: 14px; }
+        label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #334155; }
+        input[type="text"], input[type="number"], select, textarea { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: #fff; }
+        textarea { min-height: 92px; resize: vertical; }
+        .submit-layout { display:grid; grid-template-columns: 1.15fr 1fr; gap: 18px; align-items:stretch; }
+        .side-stack { display:flex; flex-direction:column; gap:14px; }
+        .input-card, .result-card { background:#fff; border:1px solid var(--border); border-radius:8px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.04); }
+        .input-card h3, .result-card h3 { font-size:18px; margin-bottom:12px; }
+        .dynamic-input { background:#f8fafc; border-radius:8px; padding:10px; }
+        .result-content { background:#f0fdf4; border-radius:8px; padding:16px; min-height:92px; font-size:16px; }
+        @media (max-width: 800px) { .submit-layout { grid-template-columns:1fr; } }
+        input[type="range"] { width: 100%; margin-top: 6px; }
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--primary); color: white; border: none; padding: 9px 18px; font-size: 14px; font-weight: 500; border-radius: 6px; cursor: pointer; transition: background 0.15s; }
+        .btn:hover { background: var(--primary-dark); }
+        .btn-secondary { background: #64748b; }
+        .btn-secondary:hover { background: #475569; }
+
+        /* Badges & Tables */
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+        .badge-success { background: #d1fae5; color: #065f46; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+        .badge-danger { background: #fee2e2; color: #991b1b; }
+        .badge-purple { background: #ede9fe; color: #5b21b6; }
+        .badge-blue { background: #dbeafe; color: #1e40af; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+        th, td { border: 1px solid var(--border); padding: 9px 12px; text-align: left; }
+        th { background: #f8fafc; font-weight: 600; color: #475569; }
+        tr:nth-child(even) { background: #fcfcfd; }
+        .highlight-row { background: #eff6ff !important; font-weight: 600; }
+
+        /* KPI Blocks */
+        .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
+        .kpi-card { background: #f8fafc; border: 1px solid var(--border); padding: 14px; border-radius: 6px; text-align: center; }
+        .kpi-val { font-size: 22px; font-weight: 700; color: var(--primary); margin-top: 4px; }
+        .kpi-lbl { font-size: 12px; color: var(--muted); text-transform: uppercase; font-weight: 600; }
+
+        /* Timeline in Explain View */
+        .step-box { border-left: 3px solid var(--primary); padding-left: 14px; margin-bottom: 14px; }
+        .step-title { font-size: 13px; font-weight: 700; color: #334155; }
+        .step-body { font-size: 13px; color: #64748b; margin-top: 2px; }
     </style>
 </head>
 <body>
-    <h1>Adaptive ML Workload Orchestrator — Phase 2</h1>
 
-    <div class="card">
-        <h2>Submit Task <small>(Person 1 + Person 3: prediction)</small></h2>
-        <label>Task Name</label>
-        <input type="text" id="taskName" placeholder="e.g. ResNet50">
-        <label>Task Type</label>
-        <select id="taskType">
-            <option value="Training">Training</option>
-            <option value="Classification">Classification</option>
-            <option value="Image Processing">Image Processing</option>
-        </select>
-        <label>Dataset ID</label>
-        <input type="number" id="datasetId" value="1">
-        <label>Priority (1-10)</label>
-        <input type="number" id="priority" value="1">
-        <button class="btn" onclick="submitTask()">Submit Task</button>
-        <div id="submitResult"></div>
+    <header>
+        <div>
+            <h1>Adaptive ML Workload Orchestrator</h1>
+            
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span id="systemStatus" class="badge badge-success">System Active (psutil ok)</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted);">
+                <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
+                    <input type="checkbox" id="autoRefreshToggle" checked onchange="toggleAutoRefresh()"> Auto-refresh (4s)
+                </label>
+                <span id="autoRefreshIndicator" style="font-size:11px; color:#10b981; font-weight:600;">&bull; Live</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 5 Dashboard Tabs -->
+    <nav class="tabs">
+        <button class="tab-btn active" onclick="switchTab(0)">1. Submit Task</button>
+        <button class="tab-btn" onclick="switchTab(1)">2. Policy &amp; Objective</button>
+        <button class="tab-btn" onclick="switchTab(2)">3. Prediction Accuracy</button>
+        <button class="tab-btn" onclick="switchTab(3)">4. Deadlock &amp; Banker's</button>
+        <button class="tab-btn" onclick="switchTab(4)">5. Explain-a-Task &amp; Audit Log</button>
+    </nav>
+
+    <!-- ====================================================================== -->
+    <!-- TAB 1: SUBMIT TASK -->
+    <!-- ====================================================================== -->
+    <div class="tab-panel active" id="tab0">
+        <div class="card">
+            <div class="submit-layout">
+                <div>
+                    <h2>Submit Machine Learning Task</h2>
+                    <div class="form-group">
+                        <label>Task Name</label>
+                        <input type="text" id="taskName" value="SMS-Detection-Run1" placeholder="Enter task name">
+                    </div>
+                    <div class="form-group">
+                        <label>Classification Subtype</label>
+                        <select id="taskSubtype" onchange="onSubtypeChange()">
+                            <option value="binary" selected>Binary Classification</option>
+                            <option value="multiclass">Multiclass Classification</option>
+                            <option value="multilabel">Multilabel Classification</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Dataset</label>
+                        <select id="datasetSelect" disabled>
+                            <option>SMS Spam Collection</option>
+                        </select>
+                    </div>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>Data Size Fraction</label>
+                            <select id="dataFraction">
+                                <option value="0.3">30% (Fast)</option>
+                                <option value="0.6">60% (Medium)</option>
+                                <option value="1.0" selected>100% (Full Dataset)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Priority (1 = Low, 10 = High)</label>
+                            <input type="number" id="priority" min="1" max="10" value="7">
+                        </div>
+                    </div>
+                    <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:4px;">
+                        <button class="btn" id="submitTaskBtn" onclick="submitTask()">Submit Task</button>
+                    </div>
+                    <div id="submitStatus" style="margin-top:10px;font-size:13px;"></div>
+                </div>
+                <div class="side-stack">
+                    <div class="input-card">
+                        <h3>Input</h3>
+                        <div class="dynamic-input">
+                            <div id="inputDescription" style="font-size:13px;font-weight:600;color:#334155;margin-bottom:8px;">SMS Spam Collection – Enter SMS Message</div>
+                            <div id="dynamicInputFields">
+                                <textarea id="smsInput" placeholder="Enter SMS message">Congratulations! You have won a free iPhone. Click here to claim!</textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="result-card">
+                        <h3>Result</h3>
+                        <div class="result-content" id="resultBox">Submit a task to see its prediction here.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Available Datasets in Cluster</h2>
+            <div id="datasetsTableContainer">Loading dataset table...</div>
+        </div>
     </div>
 
-    <div class="card">
-        <h2>Scheduling Algorithm <small>(Person 3: FCFS/SJF/Priority/RR)</small></h2>
-        <select id="algoSelect">
-            <option value="Priority">Priority</option>
-            <option value="FCFS">FCFS</option>
-            <option value="SJF">SJF</option>
-            <option value="RoundRobin">Round Robin</option>
-        </select>
-        <button class="btn" onclick="setStrategy()">Apply Live</button>
-        <div id="strategyResult"></div>
+    <!-- ====================================================================== -->
+    <!-- TAB 2: OBJECTIVE & SCHEDULING POLICY -->
+    <!-- ====================================================================== -->
+    <div class="tab-panel" id="tab1">
+        <div class="card">
+            <h2>Active Scheduling Policy & Objective <small style="font-size:12px; color:var(--muted); font-weight:normal;"></small></h2>
+            
+
+            <div class="kpi-row">
+                <div class="kpi-card">
+                    <div class="kpi-lbl">Active Mode</div>
+                    <div class="kpi-val" id="policyModeKpi" style="font-size: 18px;">recommend</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-lbl">Current Objective</div>
+                    <div class="kpi-val" id="policyObjKpi" style="font-size: 18px;">balanced</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-lbl">Enforced Algorithm</div>
+                    <div class="kpi-val" id="policyAlgoKpi" style="font-size: 18px;">Priority</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-lbl">Selection Reason</div>
+                    <div id="policyReasonKpi" style="font-size: 12px; font-weight:600; color: #475569; margin-top:8px;">Evaluating history...</div>
+                </div>
+            </div>
+
+            <div class="grid-2" style="margin-top: 16px;">
+                <div>
+                    <h3 style="font-size: 14px; margin-bottom: 10px;">Policy Mode Selection</h3>
+                    <div class="form-group">
+                        <label>Selection Strategy</label>
+                        <select id="policyModeSelect" onchange="togglePolicyModeControls(); applyPolicyConfiguration();">
+                            <option value="recommend">1. Auto-Recommend by Objective (System Optimizer)</option>
+                            <option value="manual">2. Manual Enforcement (User Selection)</option>
+                        </select>
+                    </div>
+
+                    <div id="objectiveControlsGroup">
+                        <div class="form-group">
+                            <label>Target Objective</label>
+                            <select id="targetObjectiveSelect" onchange="applyPolicyConfiguration();">
+                                <option value="balanced" selected>Balanced (Pareto trade-off)</option>
+                                <option value="fastest">Fastest (Minimize Queue Wait)</option>
+                                <option value="priority">Priority-Driven (Minimize High-Priority Wait)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="manualAlgorithmGroup" style="display: none;" class="form-group">
+                        <label>Enforce Specific Algorithm</label>
+                        <select id="manualAlgorithmSelect" onchange="applyPolicyConfiguration();">
+                            <option value="Priority">Priority</option>
+                            <option value="SJF">SJF (Shortest Job First)</option>
+                            <option value="RoundRobin">Round Robin</option>
+                            <option value="FCFS">FCFS (First-Come, First-Served)</option>
+                            <option value="SRTF">SRTF (Shortest Remaining Time First)</option>
+                            <option value="Priority-P">Priority-P (Preemptive Priority)</option>
+                        </select>
+                    </div>
+
+                    <div style="margin-top:18px; padding-top:14px; border-top:1px solid var(--border);">
+                        <h3 style="font-size:14px; margin-bottom:8px;">Scheduling Control</h3>
+                        <button class="btn" id="startSchedulingBtn" onclick="startScheduling()" disabled>Start Scheduling</button>
+                        <div id="schedulerControlStatus" style="margin-top:9px;font-size:13px;color:var(--muted);">Scheduler is idle. Submit one or more tasks, choose a policy, then start scheduling.</div>
+                    </div>
+                </div>
+
+                <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; padding: 14px;">
+                    <h3 style="font-size: 14px; margin-bottom: 8px;">Current Algorithm Scorecard</h3>
+                    <div id="policyComparisonTable">Loading policy comparison...</div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Submitted Task Queue <small style="font-size:12px;color:var(--muted);font-weight:normal;">Tasks wait here until scheduling starts</small></h2>
+            <div id="taskQueueSummary" style="font-size:13px;color:var(--muted);margin-bottom:8px;">Loading task queue...</div>
+            <div id="taskQueueContainer">Loading tasks...</div>
+        </div>
     </div>
 
-    <div class="card">
-        <h2>Analytics <small>(wait time + anomalies per task type)</small></h2>
-        <button class="btn" onclick="fetchAnalytics()">Load Analytics</button>
-        <div id="analyticsContent"></div>
+    <!-- ====================================================================== -->
+    <!-- TAB 3: PREDICTION ACCURACY -->
+    <!-- ====================================================================== -->
+    <div class="tab-panel" id="tab3">
+        <div class="card">
+            <h2>Prediction Accuracy & Model Evaluation <small style="font-size:12px; color:var(--muted); font-weight:normal;"></small></h2>
+            
+
+            <div class="kpi-row" id="accuracyKpiRow">
+                <div class="kpi-card">
+                    <div class="kpi-lbl">Baseline Duration MAE</div>
+                    <div class="kpi-val" id="baseDurMae" style="color:#ef4444;">--</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-lbl">Regression Duration MAE</div>
+                    <div class="kpi-val" id="regDurMae" style="color:#10b981;">--</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-lbl">Baseline RAM MAE</div>
+                    <div class="kpi-val" id="baseRamMae" style="color:#ef4444;">--</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-lbl">Regression RAM MAE</div>
+                    <div class="kpi-val" id="regRamMae" style="color:#10b981;">--</div>
+                </div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:10px;">
+                <button class="btn" onclick="fetchPredictionAccuracy()">Refresh Accuracy Telemetry</button>
+                <span id="accuracyStatus" style="font-size:12px; color:var(--muted);"></span>
+            </div>
+
+            <div style="margin-top: 16px;">
+                <h3 style="font-size: 14px; margin-bottom: 8px;">Completed Regression Prediction Points</h3>
+                <div id="predictionPointsTable">Loading points...</div>
+            </div>
+        </div>
     </div>
 
-    <div class="card">
-        <h2>Strategy Comparison <small>(Person 3: multi-objective)</small></h2>
-        <select id="objectiveSelect">
-            <option value="balanced">Balanced</option>
-            <option value="fastest">Fastest</option>
-            <option value="cheapest">Cheapest</option>
-            <option value="utilization">Best Utilization</option>
-        </select>
-        <button class="btn" onclick="fetchComparison()">Compare Algorithms</button>
-        <div id="comparisonContent"></div>
+    <!-- ====================================================================== -->
+    <!-- TAB 5: DEADLOCK & BANKER'S ALGORITHM -->
+    <!-- ====================================================================== -->
+    <div class="tab-panel" id="tab4">
+        <div class="card">
+            <h2>Deadlock Avoidance <small style="font-size:12px; color:var(--muted); font-weight:normal;"></small></h2>
+            
+
+            <button class="btn" onclick="runBankersDemo()">Run Deadlock Avoidance Safety Test</button>
+            <div id="bankersOutputContainer" style="margin-top: 14px;">Click above to run safety test.</div>
+
+        </div>
     </div>
 
-    <div class="card">
-        <h2>What-If Simulator <small>(Person 4)</small></h2>
-        <label>New RAM ceiling (%)</label>
-        <input type="number" id="ramCeiling" value="60">
-        <button class="btn" onclick="whatifRam()">Simulate RAM Ceiling</button>
-        <label>Extra tasks arriving</label>
-        <input type="number" id="surgeCount" value="5">
-        <button class="btn" onclick="whatifSurge()">Simulate Task Surge</button>
-        <div id="whatifContent"></div>
-    </div>
+    <!-- ====================================================================== -->
+    <!-- TAB 6: EXPLAIN-A-TASK & AUDIT LOG -->
+    <!-- ====================================================================== -->
+    <div class="tab-panel" id="tab5">
+        <div class="card">
+            <h2>Explain-a-Task Inspector <small style="font-size:12px; color:var(--muted); font-weight:normal;"></small></h2>
+            
 
-    <div class="card">
-        <h2>Deadlock Check <small>(Person 4)</small></h2>
-        <button class="btn" onclick="checkDeadlock()">Check Now</button>
-        <div id="deadlockContent"></div>
-    </div>
+            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 16px;">
+                <label style="margin:0;">Task ID:</label>
+                <input type="number" id="explainTaskId" value="1" style="width: 100px;">
+                <button class="btn" onclick="explainTask()">Inspect Task Lifecycle</button>
+            </div>
 
-    <div class="card">
-        <h2>Scheduling Decisions Log <small>(Person 2 + Person 4: audit trail)</small></h2>
-        <button class="btn" onclick="fetchDecisions()">Load Recent Decisions</button>
-        <div id="decisionsContent"></div>
+            <div id="explainTaskOutput">
+                <div style="font-size: 13px; color: var(--muted);">Enter a Task ID and click 'Inspect Task Lifecycle'.</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Scheduling Decisions Audit Trail <small style="font-size:12px; color:var(--muted); font-weight:normal;"></small></h2>
+            
+            <button class="btn" onclick="fetchDecisions()">Refresh Audit Log</button>
+            <div id="decisionsContainer" style="margin-top: 12px;">Loading recent decisions...</div>
+        </div>
+
+        <div class="card">
+            <h2>Cluster Workload Analytics & Anomaly Summary</h2>
+            <button class="btn" onclick="fetchAnalytics()">Refresh Analytics</button>
+            <div id="analyticsContainer" style="margin-top: 12px;">Loading analytics...</div>
+        </div>
     </div>
 
     <script>
-        const API_URL = 'http://localhost:8000';
+        const API_URL = '';
+        let currentTabIdx = 0;
+        let autoRefreshTimer = null;
+        let policyRefreshTicks = 0;
 
-        async function submitTask() {
-            const name = document.getElementById('taskName').value;
-            const type = document.getElementById('taskType').value;
-            const ds = document.getElementById('datasetId').value;
-            const prio = document.getElementById('priority').value;
-            try {
-                const res = await fetch(`${API_URL}/submit_task/?task_name=${encodeURIComponent(name)}&task_type=${encodeURIComponent(type)}&dataset_id=${ds}&priority=${prio}`, { method: 'POST' });
-                const data = await res.json();
-                document.getElementById('submitResult').innerHTML =
-                    `<p>${data.message || JSON.stringify(data)} ${data.prediction_source ? `<span class="tag ok">${data.prediction_source}</span>` : ''}</p>`;
-            } catch (err) {
-                document.getElementById('submitResult').innerHTML = `<p class="tag warn">Error: ${err}</p>`;
+        function switchTab(idx) {
+            currentTabIdx = idx;
+            document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+            document.querySelectorAll('.tab-panel').forEach((p, i) => p.classList.toggle('active', i === idx));
+
+            if (idx === 0) { previewDatasetSpecs(); loadDatasetsTable(); }
+            if (idx === 1) { togglePolicyModeControls(); loadCurrentPolicy(); loadTaskQueue(); refreshSchedulerStatus(); }
+            if (idx === 2) { fetchPredictionAccuracy(); }
+            if (idx === 3) { runBankersDemo(); }
+            if (idx === 4) { fetchDecisions(); fetchAnalytics(); }
+        }
+
+        // =====================================================================
+        // Auto-Refresh & Background Polling (5th-Sem UX Enhancement)
+        // =====================================================================
+        function toggleAutoRefresh() {
+            const isChecked = document.getElementById('autoRefreshToggle').checked;
+            const ind = document.getElementById('autoRefreshIndicator');
+            if (isChecked) {
+                ind.innerText = '• Live';
+                ind.style.color = '#10b981';
+                startAutoRefresh();
+            } else {
+                ind.innerText = '• Paused';
+                ind.style.color = '#64748b';
+                stopAutoRefresh();
             }
         }
 
-        async function setStrategy() {
-            const algo = document.getElementById('algoSelect').value;
-            const res = await fetch(`${API_URL}/strategy/?algorithm=${algo}`, { method: 'POST' });
-            const data = await res.json();
-            document.getElementById('strategyResult').innerHTML = `<p>${data.message}</p>`;
+        function startAutoRefresh() {
+            stopAutoRefresh();
+            autoRefreshTimer = setInterval(() => {
+                const isChecked = document.getElementById('autoRefreshToggle')?.checked;
+                if (!isChecked) return;
+
+                if (currentTabIdx === 1) {
+                    loadTaskQueue();
+                    refreshSchedulerStatus();
+                    // The scorecard is calculated from execution history; refresh it
+                    // less often than the live queue to avoid unnecessary API/DB work.
+                    policyRefreshTicks++;
+                    if (policyRefreshTicks % 6 === 0) loadCurrentPolicy();
+                }
+                else if (currentTabIdx === 4) { fetchDecisions(); fetchAnalytics(); }
+
+                const ind = document.getElementById('autoRefreshIndicator');
+                if (ind) {
+                    ind.innerText = '• Live (' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'}) + ')';
+                }
+            }, 750);
         }
 
-        async function fetchAnalytics() {
-            const res = await fetch(`${API_URL}/analytics/`);
-            const data = await res.json();
-            if (!data.length) { document.getElementById('analyticsContent').innerHTML = '<p>No data yet.</p>'; return; }
-            let html = '<table><tr><th>Task Type</th><th>Avg Wait (s)</th><th>Anomalies</th></tr>';
-            data.forEach(r => html += `<tr><td>${r.task_type}</td><td>${(r.avg_wait ?? 0).toFixed(2)}</td><td>${r.anomalies ?? 0}</td></tr>`);
-            document.getElementById('analyticsContent').innerHTML = html + '</table>';
+        function stopAutoRefresh() {
+            if (autoRefreshTimer) {
+                clearInterval(autoRefreshTimer);
+                autoRefreshTimer = null;
+            }
         }
 
-        async function fetchComparison() {
-            const obj = document.getElementById('objectiveSelect').value;
-            const res = await fetch(`${API_URL}/strategy_comparison/?objective=${obj}`);
-            const data = await res.json();
-            if (!data.all_strategies.length) { document.getElementById('comparisonContent').innerHTML = '<p>No completed runs yet.</p>'; return; }
-            let html = '<table><tr><th>Algorithm</th><th>Samples</th><th>Avg Wait</th><th>Avg Duration</th><th>Avg CPU%</th><th>Cost Score</th></tr>';
-            data.all_strategies.forEach(r => html += `<tr><td>${r.algorithm}</td><td>${r.samples}</td><td>${r.avg_wait_sec}</td><td>${r.avg_duration_sec}</td><td>${r.avg_cpu_percent}</td><td>${r.cost_score}</td></tr>`);
-            html += '</table>';
-            if (data.recommended) html += `<p><strong>Recommended:</strong> ${data.recommended.algorithm}</p>`;
-            document.getElementById('comparisonContent').innerHTML = html;
+        // =====================================================================
+        // TAB 1: Task Submission & Datasets
+        // =====================================================================
+        const DATASET_BY_SUBTYPE = {
+            binary: { name: 'SMS Spam Collection', classes: 'Spam, Not Spam' },
+            multiclass: { name: 'Iris Flower Dataset', classes: 'Setosa, Versicolor, Virginica' },
+            multilabel: { name: 'Movie Genre Dataset', classes: 'Action, Adventure, Comedy, Drama, Thriller' }
+        };
+        let activeTaskId = null;
+        let resultPollTimer = null;
+
+        function onSubtypeChange() {
+            const subtype = document.getElementById('taskSubtype').value;
+            const dataset = DATASET_BY_SUBTYPE[subtype];
+            document.getElementById('datasetSelect').innerHTML = `<option>${dataset.name}</option>`;
+            const description = document.getElementById('inputDescription');
+            const fields = document.getElementById('dynamicInputFields');
+            if (subtype === 'binary') {
+                description.textContent = 'SMS Spam Collection – Enter SMS Message';
+                fields.innerHTML = '<textarea id="smsInput" placeholder="Enter SMS message"></textarea>';
+                document.getElementById('taskName').value = 'SMS-Detection-Run1';
+            } else if (subtype === 'multiclass') {
+                description.textContent = 'Iris Flower Dataset – Enter Flower Measurements (cm)';
+                fields.innerHTML = `<div class="grid-2">
+                    <div class="form-group"><label>Sepal Length</label><input id="sepal_length" type="number" min="0.1" step="0.1" value="5.1"></div>
+                    <div class="form-group"><label>Sepal Width</label><input id="sepal_width" type="number" min="0.1" step="0.1" value="3.5"></div>
+                    <div class="form-group"><label>Petal Length</label><input id="petal_length" type="number" min="0.1" step="0.1" value="1.4"></div>
+                    <div class="form-group"><label>Petal Width</label><input id="petal_width" type="number" min="0.1" step="0.1" value="0.2"></div>
+                </div>`;
+                document.getElementById('taskName').value = 'Iris-Classification-Run1';
+            } else {
+                description.textContent = 'Movie Genre Dataset – Enter Movie Description';
+                fields.innerHTML = '<textarea id="movieDescription" placeholder="Enter a movie plot or description"></textarea>';
+                document.getElementById('taskName').value = 'Movie-Genre-Run1';
+            }
+            document.getElementById('resultBox').textContent = 'Submit a task to see its prediction here.';
+            previewDatasetSpecs();
         }
 
-        async function whatifRam() {
-            const ceiling = document.getElementById('ramCeiling').value;
-            const res = await fetch(`${API_URL}/whatif/ram/?new_ceiling_percent=${ceiling}`);
-            const data = await res.json();
-            document.getElementById('whatifContent').innerHTML = `<p>${data.scenario}: ${data.would_be_blocked} of ${data.total_tasks} past tasks would have been blocked.</p>`;
+        async function previewDatasetSpecs() {
+            const subtype = document.getElementById('taskSubtype').value;
+            const dataset = DATASET_BY_SUBTYPE[subtype];
+            document.getElementById('datasetSelect').innerHTML = `<option>${dataset.name}</option>`;
         }
 
-        async function whatifSurge() {
-            const n = document.getElementById('surgeCount').value;
-            const res = await fetch(`${API_URL}/whatif/surge/?extra_tasks=${n}`);
-            const data = await res.json();
-            document.getElementById('whatifContent').innerHTML = `<p>${data.scenario}: projected extra wait ≈ ${data.projected_extra_wait_sec}s.</p>`;
+        async function loadDatasetsTable() {
+            const container = document.getElementById('datasetsTableContainer');
+            try {
+                const res = await fetch(`${API_URL}/datasets/`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                const wanted = ['SMS Spam Collection', 'Iris Flower Dataset', 'Movie Genre Dataset'];
+                const rows = wanted.map(name => data.find(d => d.name === name)).filter(Boolean);
+                let html = '<table><tr><th>ID</th><th>Dataset Name</th><th>Classes</th></tr>';
+                rows.forEach(d => {
+                    const labels = d.name.includes('SMS') ? 'Spam, Not Spam' : d.name.includes('Iris') ? 'Setosa, Versicolor, Virginica' : 'Action, Adventure, Comedy, Drama, Thriller';
+                    html += `<tr><td>${d.dataset_id}</td><td><strong>${d.name}</strong></td><td>${labels}</td></tr>`;
+                });
+                container.innerHTML = html + '</table>';
+            } catch (e) {
+                container.innerHTML = `<span class="badge badge-warning">Could not load datasets: ${e.message || e}</span>`;
+            }
         }
 
-        async function checkDeadlock() {
-            const res = await fetch(`${API_URL}/deadlock_check/`);
-            const data = await res.json();
-            document.getElementById('deadlockContent').innerHTML = data.deadlock_detected
-                ? `<p class="tag warn">Deadlock detected: ${JSON.stringify(data.cycle)}</p>`
-                : `<p class="tag ok">No deadlock detected</p>`;
+        async function refreshSchedulerStatus() {
+            const statusEl = document.getElementById('schedulerControlStatus');
+            const startBtn = document.getElementById('startSchedulingBtn');
+            try {
+                const res = await fetch(`${API_URL}/scheduler_status/?_=${Date.now()}`, { cache: 'no-store' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+
+                if (data.enabled) {
+                    statusEl.innerHTML = `<span class="badge badge-warning">Scheduling active</span> Pending: ${data.pending} · Running: ${data.running} · Completed: ${data.completed}`;
+                    startBtn.disabled = true;
+                    startBtn.style.opacity = '0.6';
+                } else {
+                    statusEl.innerHTML = `<span class="badge badge-blue">Scheduler idle</span> Pending: ${data.pending} · Running: ${data.running} · Completed: ${data.completed}`;
+                    startBtn.disabled = data.pending === 0;
+                    startBtn.style.opacity = startBtn.disabled ? '0.6' : '1';
+                }
+            } catch (e) {
+                statusEl.innerHTML = `<span class="badge badge-danger">Scheduler status unavailable: ${e.message || e}</span>`;
+            }
+        }
+
+        async function startScheduling() {
+            const statusEl = document.getElementById('schedulerControlStatus');
+            const startBtn = document.getElementById('startSchedulingBtn');
+            startBtn.disabled = true;
+            statusEl.textContent = 'Starting scheduler...';
+
+            try {
+                const res = await fetch(`${API_URL}/start_scheduling/`, { method: 'POST' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Could not start scheduling');
+                statusEl.textContent = data.message;
+                await refreshSchedulerStatus();
+                await loadTaskQueue();
+            } catch (e) {
+                statusEl.innerHTML = `<span class="badge badge-danger">Error: ${e.message || e}</span>`;
+                startBtn.disabled = false;
+            }
+        }
+
+        async function loadTaskQueue() {
+            const container = document.getElementById('taskQueueContainer');
+            const summary = document.getElementById('taskQueueSummary');
+            if (!container || !summary) return;
+
+            try {
+                const res = await fetch(`${API_URL}/task_queue/?_=${Date.now()}`, { cache: 'no-store' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const tasks = await res.json();
+
+                const counts = { pending: 0, running: 0, completed: 0, failed: 0 };
+                tasks.forEach(task => {
+                    if (Object.prototype.hasOwnProperty.call(counts, task.status)) counts[task.status]++;
+                });
+                summary.textContent = `Total: ${tasks.length} · Pending: ${counts.pending} · Running: ${counts.running} · Completed: ${counts.completed} · Failed: ${counts.failed}`;
+
+                if (!tasks.length) {
+                    container.innerHTML = '<div style="font-size:13px;color:var(--muted);">No tasks submitted yet.</div>';
+                    return;
+                }
+
+                let table = '<table><tr><th>Task ID</th><th>Task Name</th><th>Type</th><th>Priority</th><th>Status</th><th>Algorithm</th><th>Prediction</th></tr>';
+                tasks.slice().reverse().forEach(task => {
+                    const statusClass = task.status === 'completed' ? 'badge-success'
+                        : task.status === 'failed' ? 'badge-danger'
+                        : task.status === 'running' ? 'badge-warning' : 'badge-blue';
+                    let prediction = task.prediction;
+                    if (Array.isArray(prediction)) prediction = prediction.join(', ');
+                    if (prediction && typeof prediction === 'object') prediction = JSON.stringify(prediction);
+                    if (typeof prediction === 'string' && prediction.startsWith('ERROR: ')) prediction = prediction;
+                    table += `<tr>
+                        <td>#${task.task_id}</td>
+                        <td>${escapeHtml(task.task_name || '')}</td>
+                        <td>${escapeHtml(task.subtype || '')}</td>
+                        <td>${task.priority}</td>
+                        <td><span class="badge ${statusClass}">${escapeHtml(task.status)}</span></td>
+                        <td>${escapeHtml(task.algorithm_used || '--')}</td>
+                        <td>${escapeHtml(prediction == null ? '--' : String(prediction))}</td>
+                    </tr>`;
+                });
+                container.innerHTML = table + '</table>';
+            } catch (e) {
+                container.innerHTML = `<span class="badge badge-danger">Could not load queue: ${e.message || e}</span>`;
+            }
+        }
+
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>"']/g, char => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;',
+                '"': '&quot;', "'": '&#39;'
+            })[char]);
+        }
+
+        function collectTaskInput(subtype) {
+            if (subtype === 'binary') return { sms: document.getElementById('smsInput').value.trim() };
+            if (subtype === 'multiclass') return {
+                sepal_length: document.getElementById('sepal_length').value,
+                sepal_width: document.getElementById('sepal_width').value,
+                petal_length: document.getElementById('petal_length').value,
+                petal_width: document.getElementById('petal_width').value
+            };
+            return { description: document.getElementById('movieDescription').value.trim() };
+        }
+
+        async function submitTask() {
+            const subtype = document.getElementById('taskSubtype').value;
+            const payload = {
+                task_name: document.getElementById('taskName').value.trim() || 'ML-Task',
+                subtype,
+                data_fraction: parseFloat(document.getElementById('dataFraction').value),
+                priority: parseInt(document.getElementById('priority').value, 10),
+                input_data: collectTaskInput(subtype)
+            };
+            const statusBox = document.getElementById('submitStatus');
+            const resultBox = document.getElementById('resultBox');
+            const button = document.getElementById('submitTaskBtn');
+            if (subtype === 'binary' && !payload.input_data.sms) { statusBox.innerHTML = '<span class="badge badge-danger">Enter an SMS message.</span>'; return; }
+            if (subtype === 'multilabel' && payload.input_data.description.length < 10) { statusBox.innerHTML = '<span class="badge badge-danger">Enter a movie description of at least 10 characters.</span>'; return; }
+            if (subtype === 'multiclass' && Object.values(payload.input_data).some(v => !v || Number(v) <= 0)) { statusBox.innerHTML = '<span class="badge badge-danger">Enter all four positive flower measurements.</span>'; return; }
+            if (!Number.isInteger(payload.priority) || payload.priority < 1 || payload.priority > 10) { statusBox.innerHTML = '<span class="badge badge-danger">Priority must be between 1 and 10.</span>'; return; }
+            button.disabled = true;
+            statusBox.innerHTML = '<span style="color:var(--primary)">Submitting task...</span>';
+            resultBox.textContent = 'Task will run after you click Start Scheduling.';
+            try {
+                const res = await fetch(`${API_URL}/submit_task/`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Task submission failed');
+                activeTaskId = data.task_id;
+                statusBox.innerHTML = `<span class="badge badge-success">Task #${data.task_id} submitted — ${data.status}</span>`;
+                resultBox.innerHTML = `Task #${data.task_id}<br>Status: <strong>Pending — waiting for Start Scheduling</strong>`;
+                if (resultPollTimer) clearInterval(resultPollTimer);
+                resultPollTimer = setInterval(() => pollTaskResult(data.task_id), 2000);
+                pollTaskResult(data.task_id);
+                loadTaskQueue();
+                refreshSchedulerStatus();
+            } catch (e) {
+                statusBox.innerHTML = `<span class="badge badge-danger">Error: ${e.message || e}</span>`;
+                resultBox.textContent = 'No prediction available.';
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        async function pollTaskResult(taskId) {
+            try {
+                const res = await fetch(`${API_URL}/task_result/${taskId}?_=${Date.now()}`, { cache: 'no-store' });
+                const data = await res.json();
+                const resultBox = document.getElementById('resultBox');
+                if (data.status === 'completed') {
+                    const prediction = Array.isArray(data.prediction) ? data.prediction.join(', ') : data.prediction;
+                    resultBox.innerHTML = `<div style="font-size:18px;">Prediction: <strong style="color:#15803d">${prediction}</strong></div><div style="font-size:17px;margin-top:12px;">${data.metric_name}: <strong>${(data.score * 100).toFixed(1)}%</strong></div>`;
+                    if (resultPollTimer) clearInterval(resultPollTimer);
+                    loadTaskQueue();
+                    refreshSchedulerStatus();
+                } else if (data.status === 'failed') {
+                    resultBox.innerHTML = `<span style="color:#b91c1c">Task failed: ${data.error || 'Check backend logs and dataset availability.'}</span>`;
+                    if (resultPollTimer) clearInterval(resultPollTimer);
+                    loadTaskQueue();
+                    refreshSchedulerStatus();
+                } else {
+                    resultBox.innerHTML = `Task #${taskId}<br>Status: <strong>${data.status}</strong> — waiting for prediction...`;
+                }
+            } catch (e) {
+                console.error('Result polling failed', e);
+            }
+        }
+
+
+        // =====================================================================
+        // TAB 2: Policy & Objective
+        // =====================================================================
+        function togglePolicyModeControls() {
+            const mode = document.getElementById('policyModeSelect').value;
+            document.getElementById('objectiveControlsGroup').style.display = (mode === 'recommend') ? 'block' : 'none';
+            document.getElementById('manualAlgorithmGroup').style.display = (mode === 'manual') ? 'block' : 'none';
+        }
+
+        async function loadCurrentPolicy() {
+            try {
+                const res = await fetch(`${API_URL}/current_policy/`);
+                const data = await res.json();
+
+                document.getElementById('policyModeKpi').innerText = data.policy_mode;
+                document.getElementById('policyObjKpi').innerText = data.objective;
+                document.getElementById('policyAlgoKpi').innerText = data.algorithm;
+                document.getElementById('policyReasonKpi').innerText = data.reason;
+
+                // Keep the controls synchronized with the policy actually held by the backend.
+                document.getElementById('policyModeSelect').value = data.policy_mode === 'manual' ? 'manual' : 'recommend';
+                if (data.objective) document.getElementById('targetObjectiveSelect').value = data.objective;
+                if (data.algorithm && [...document.getElementById('manualAlgorithmSelect').options].some(o => o.value === data.algorithm)) {
+                    document.getElementById('manualAlgorithmSelect').value = data.algorithm;
+                }
+                togglePolicyModeControls();
+
+                if (data.comparison && data.comparison.length) {
+                    renderPolicyComparisonTable(data.comparison, data.algorithm);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function renderPolicyComparisonTable(list, activeAlgo) {
+            let html = '<table><tr><th>Algorithm</th><th>Avg Wait (s)</th><th>High-Prio Wait (s)</th><th>Max Wait (s)</th></tr>';
+            list.forEach(r => {
+                const isSel = (r.algorithm === activeAlgo);
+                html += `<tr class="${isSel ? 'highlight-row' : ''}">
+                    <td><strong>${r.algorithm}</strong> ${isSel ? '<span class="badge badge-success">ACTIVE</span>' : ''}</td>
+                    <td>${r.avg_wait_sec}</td>
+                    <td>${r.high_priority_wait_sec !== null ? r.high_priority_wait_sec : '--'}</td>
+                    <td>${r.max_wait_sec}</td>
+                </tr>`;
+            });
+            document.getElementById('policyComparisonTable').innerHTML = html + '</table>';
+        }
+
+        async function applyPolicyConfiguration() {
+            const mode = document.getElementById('policyModeSelect').value;
+
+            try {
+                let response;
+                if (mode === 'manual') {
+                    const algo = document.getElementById('manualAlgorithmSelect').value;
+                    response = await fetch(`${API_URL}/policy_mode/?mode=manual&algorithm=${encodeURIComponent(algo)}`, { method: 'POST' });
+                } else {
+                    const obj = document.getElementById('targetObjectiveSelect').value;
+                    response = await fetch(`${API_URL}/objective/?objective=${encodeURIComponent(obj)}`, { method: 'POST' });
+                }
+                if (!response.ok) throw new Error(`Policy update failed (HTTP ${response.status})`);
+                await loadCurrentPolicy();
+            } catch (e) {
+                console.error('Failed to apply policy:', e);
+                const reason = document.getElementById('policyReasonKpi');
+                if (reason) reason.textContent = `Could not apply policy: ${e.message || e}`;
+            }
+        }
+
+        // =====================================================================
+        // TAB 3: Prediction Accuracy
+        // =====================================================================
+        async function fetchPredictionAccuracy() {
+            const statusEl = document.getElementById('accuracyStatus');
+            const tableEl = document.getElementById('predictionPointsTable');
+            if (statusEl) statusEl.innerText = 'Refreshing...';
+
+            try {
+                const ts = Date.now();
+                const res = await fetch(`${API_URL}/prediction_accuracy/?_t=${ts}`, { cache: 'no-store' });
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+                const data = await res.json();
+
+                const bDur = data.duration_sec?.baseline?.mae ?? '--';
+                const rDur = data.duration_sec?.regression?.mae ?? '--';
+                const bRam = data.ram_mb?.baseline?.mae ?? '--';
+                const rRam = data.ram_mb?.regression?.mae ?? '--';
+
+                document.getElementById('baseDurMae').innerText = `${bDur}s`;
+                document.getElementById('regDurMae').innerText = `${rDur}s`;
+                document.getElementById('baseRamMae').innerText = `${bRam} MB`;
+                document.getElementById('regRamMae').innerText = `${rRam} MB`;
+
+                const ptsRes = await fetch(`${API_URL}/prediction_points/?_t=${ts}`, { cache: 'no-store' });
+                if (!ptsRes.ok) {
+                    throw new Error(`HTTP ${ptsRes.status}`);
+                }
+                const pts = await ptsRes.json();
+
+                if (!Array.isArray(pts) || pts.length === 0) {
+                    tableEl.innerHTML = '<div style="font-size:13px; color:var(--muted);">No regression prediction points recorded yet.</div>';
+                } else {
+                    let html = '<table><tr><th>Subtype</th><th>Data Fraction</th><th>Pred RAM (MB)</th><th>Actual RAM (MB)</th><th>Pred Time (s)</th><th>Actual Time (s)</th><th>Error</th></tr>';
+                    pts.slice(0, 10).forEach(p => {
+                        const err = Math.abs(p.pred_time - p.actual_time).toFixed(2);
+                        html += `<tr><td>${p.subtype}</td><td>${(p.fraction * 100).toFixed(0)}%</td><td>${p.pred_ram}</td><td>${p.actual_ram}</td><td>${p.pred_time}</td><td>${p.actual_time}</td><td>${err}s</td></tr>`;
+                    });
+                    tableEl.innerHTML = html + '</table>';
+                }
+
+                if (statusEl) {
+                    statusEl.innerText = `Updated at ${new Date().toLocaleTimeString()}`;
+                }
+            } catch (e) {
+                console.error(e);
+                if (statusEl) {
+                    statusEl.innerHTML = `<span class="badge badge-danger">Failed: ${e.message || e}</span>`;
+                }
+            }
+        }
+
+        // =====================================================================
+        // TAB 4: Deadlock & Banker's Algorithm
+        // =====================================================================
+        async function runBankersDemo() {
+            const container = document.getElementById('bankersOutputContainer');
+            container.innerHTML = 'Executing Banker\'s Safety algorithm...';
+            try {
+                const res = await fetch(`${API_URL}/bankers/demo/`);
+                const data = await res.json();
+
+                let procTable = '<table><tr><th>Process</th><th>Allocation [A, B, C]</th><th>Max Claim [A, B, C]</th><th>Need [A, B, C]</th></tr>';
+                data.processes.forEach(p => {
+                    procTable += `<tr><td><strong>${p.process}</strong></td><td>[${p.allocation.join(', ')}]</td><td>[${p.max.join(', ')}]</td><td>[${p.need.join(', ')}]</td></tr>`;
+                });
+                procTable += '</table>';
+
+                let testsHtml = '';
+                data.textbook_tests.forEach(t => {
+                    const isGranted = (t.decision === 'GRANTED');
+                    testsHtml += `
+                        <div style="background:#fff; border:1px solid #cbd5e1; border-radius:6px; padding:10px; margin-top:8px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <strong>Request: ${t.process} requests [${t.request.join(', ')}]</strong>
+                                <span class="badge ${isGranted ? 'badge-success' : 'badge-danger'}">${t.decision}</span>
+                            </div>
+                            <div style="font-size:12px; color:#475569; margin-top:4px;">${t.reason}</div>
+                            ${isGranted ? `<div style="font-size:12px; color:var(--primary); margin-top:2px;">Safe sequence: ${t.safe_sequence.join(' &rarr; ')}</div>` : ''}
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = `
+                    <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:12px; margin-bottom:12px;">
+                        <span class="badge badge-success" style="font-size:13px;">SAFE STATE DETECTED</span>
+                        <div style="font-size:14px; margin-top:6px;">Textbook Safe Sequence: <strong>${data.safe_sequence.join(' &rarr; ')}</strong></div>
+                        <div style="font-size:12px; color:var(--muted); margin-top:4px;">Initial Available Vector: [${data.available.join(', ')}]</div>
+                    </div>
+                    <h4 style="font-size:13px; margin-bottom:4px;">Allocation & Need Matrix:</h4>
+                    ${procTable}
+                    <h4 style="font-size:13px; margin:12px 0 4px 0;">Standard Textbook Verification Tests:</h4>
+                    ${testsHtml}
+                `;
+            } catch (e) {
+                container.innerHTML = `<span class="badge badge-danger">Error: ${e}</span>`;
+            }
+        }
+
+        // =====================================================================
+        // TAB 6: Explain-a-Task & Audit Log
+        // =====================================================================
+        async function explainTask() {
+            const id = document.getElementById('explainTaskId').value;
+            const out = document.getElementById('explainTaskOutput');
+            out.innerHTML = 'Loading task lifecycle telemetry...';
+
+            try {
+                const res = await fetch(`${API_URL}/explain_task/${id}`);
+                const data = await res.json();
+
+                const t = data.task;
+                const ds = data.dataset;
+                const p = data.predictions;
+                const d = data.scheduling_decision;
+                const ex = data.actual_execution;
+
+                out.innerHTML = `
+                    <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:16px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                            <h3 style="font-size:16px;">Lifecycle: Task #${t.task_id} &mdash; ${t.name}</h3>
+                            <span class="badge ${t.status === 'completed' ? 'badge-success' : 'badge-warning'}">${t.status}</span>
+                        </div>
+
+                        <div class="step-box">
+                            <div class="step-title">1. Dataset Ingestion & Feature Profile</div>
+                            <div class="step-body">Dataset: <strong>${ds.name}</strong> &bull; Raw Size: ${ds.size_mb} MB &bull; Subtype: ${t.subtype} (${(t.data_fraction*100).toFixed(0)}% fraction = ${ds.effective_size_mb} MB effective) &bull; Features: ${ds.n_features} &bull; Classes: ${ds.n_classes}</div>
+                        </div>
+
+                        <div class="step-box">
+                            <div class="step-title">2. Multiple Linear Regression Prediction (Person 1)</div>
+                            <div class="step-body">
+                                Predicted: <strong>CPU ${p.linear_regression.cpu}%</strong>, <strong>RAM ${p.linear_regression.ram_mb} MB</strong>, <strong>Duration ${p.linear_regression.duration_sec}s</strong>
+                                <span style="color:#64748b; font-size:12px; margin-left:8px;">(Baseline Guess: CPU ${p.baseline.cpu}%, RAM ${p.baseline.ram_mb}MB, Time ${p.baseline.duration_sec}s)</span>
+                            </div>
+                        </div>
+
+                        <div class="step-box">
+                            <div class="step-title">3. Logistic Regression Task Classification</div>
+                            <div class="step-body">
+                                Category: <span class="badge badge-purple">${p.classification?.category || 'balanced'}</span> &bull; Recommended Algorithm: <strong>${p.classification?.recommended_algorithm || 'RoundRobin'}</strong>
+                            </div>
+                        </div>
+
+                        <div class="step-box">
+                            <div class="step-title">4. OS Scheduling & Admission Decision (Person 3 + Person 4)</div>
+                            <div class="step-body">Decision: <span class="badge badge-success">${d.decision}</span> &bull; Enforced Algorithm: <strong>${t.algorithm_used}</strong> &bull; Reason: ${d.reason}</div>
+                        </div>
+
+                        <div class="step-box" style="border-left-color: ${ex ? '#10b981' : '#f59e0b'};">
+                            <div class="step-title">5. Real Execution Measurements (ml_runner)</div>
+                            <div class="step-body">
+                                ${ex ? `
+                                    Actual Duration: <strong>${ex.duration_sec}s</strong> &bull; Wait Time: <strong>${ex.wait_time_sec}s</strong><br>
+                                    Measured CPU: <strong>${ex.cpu_percent}%</strong> &bull; Peak RSS RAM: <strong>${ex.ram_mb} MB</strong><br>
+                                    Model Accuracy: <strong>${(ex.accuracy * 100).toFixed(1)}%</strong> &bull; Anomaly Detected: <span class="badge ${ex.is_anomaly ? 'badge-danger' : 'badge-success'}">${ex.is_anomaly ? 'YES (Anomaly)' : 'NO (Normal)'}</span>
+                                ` : 'Task has not completed real execution yet.'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } catch (e) {
+                out.innerHTML = `<span class="badge badge-danger">Task not found: ${e}</span>`;
+            }
         }
 
         async function fetchDecisions() {
-            const res = await fetch(`${API_URL}/scheduling_decisions/`);
-            const data = await res.json();
-            if (!data.length) { document.getElementById('decisionsContent').innerHTML = '<p>No decisions logged yet.</p>'; return; }
-            let html = '<table><tr><th>Task ID</th><th>Decision</th><th>Reason</th><th>Time</th></tr>';
-            data.forEach(r => html += `<tr><td>${r.task_id}</td><td>${r.decision}</td><td>${r.reason}</td><td>${r.timestamp}</td></tr>`);
-            document.getElementById('decisionsContent').innerHTML = html + '</table>';
+            const container = document.getElementById('decisionsContainer');
+            try {
+                const res = await fetch(`${API_URL}/scheduling_decisions/?_t=${Date.now()}`, { cache: 'no-store' });
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+                const data = await res.json();
+                if (!Array.isArray(data) || data.length === 0) {
+                    container.innerHTML = '<div style="font-size:13px; color:var(--muted);">No scheduling decisions recorded yet.</div>';
+                    return;
+                }
+                let html = `<div style="font-size:12px; color:var(--muted); margin-bottom:6px;">Showing latest ${Math.min(data.length, 15)} of ${data.length} records &bull; Updated at ${new Date().toLocaleTimeString()}</div>`;
+                html += '<table><tr><th>Task ID</th><th>Decision</th><th>Reason / Algorithm</th><th>Timestamp</th></tr>';
+                data.slice(0, 15).forEach(r => {
+                    const isAdmit = (r.decision === 'admitted');
+                    html += `<tr><td><strong>#${r.task_id}</strong></td><td><span class="badge ${isAdmit ? 'badge-success' : 'badge-warning'}">${r.decision}</span></td><td>${r.reason}</td><td>${r.timestamp}</td></tr>`;
+                });
+                container.innerHTML = html + '</table>';
+            } catch (e) {
+                console.error(e);
+                if (container) {
+                    container.innerHTML = `<span class="badge badge-danger">Failed to refresh audit log: ${e.message || e}</span>`;
+                }
+            }
         }
+
+        async function fetchAnalytics() {
+            const container = document.getElementById('analyticsContainer');
+            try {
+                const res = await fetch(`${API_URL}/analytics/?_t=${Date.now()}`, { cache: 'no-store' });
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+                const data = await res.json();
+                if (!Array.isArray(data) || data.length === 0) {
+                    container.innerHTML = '<div style="font-size:13px; color:var(--muted);">No completed execution analytics recorded yet.</div>';
+                    return;
+                }
+                let html = `<div style="font-size:12px; color:var(--muted); margin-bottom:6px;">Updated at ${new Date().toLocaleTimeString()}</div>`;
+                html += '<table><tr><th>Task Subtype</th><th>Avg Queue Wait (s)</th><th>Anomalies Flagged</th><th>Avg Model Accuracy</th></tr>';
+                data.forEach(r => {
+                    html += `<tr><td><strong>${r.task_type}</strong></td><td>${r.avg_wait}s</td><td><span class="badge ${r.anomalies > 0 ? 'badge-danger' : 'badge-success'}">${r.anomalies}</span></td><td>${(r.avg_accuracy * 100).toFixed(1)}%</td></tr>`;
+                });
+                container.innerHTML = html + '</table>';
+            } catch (e) {
+                console.error(e);
+                if (container) {
+                    container.innerHTML = `<span class="badge badge-danger">Failed to refresh analytics: ${e.message || e}</span>`;
+                }
+            }
+        }
+
+        // Initial setup on page load
+        window.onload = function() {
+            switchTab(0);
+            startAutoRefresh();
+        };
     </script>
 </body>
 </html>
