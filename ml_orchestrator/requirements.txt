@@ -4,3 +4,4 @@ sqlalchemy
 psutil
 scikit-learn
 numpy
+pytest
